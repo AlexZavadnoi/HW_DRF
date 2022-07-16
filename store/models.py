@@ -12,6 +12,6 @@ class Store(models.Model):
         null=True,
         blank=True)
     status = models.CharField(
-        default='',
+        default='in_review',
         max_length=20,
         choices=(('in_review', 'In Review'), ('active', 'Active'), ('deactivated', 'Deactivated')))
