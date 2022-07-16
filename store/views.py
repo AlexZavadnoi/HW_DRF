@@ -1,9 +1,15 @@
 import datetime
+
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
+from rest_framework.status import HTTP_201_CREATED
 from rest_framework.views import APIView
 from store.models import Store
 from store.serializers import StoreSerializer, CalculatorSerializer
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 
 
 @api_view(http_method_names=['GET'])
@@ -49,16 +55,89 @@ def calculator(request):
     return Response({'result': result})
 
 
-class StoreView(APIView):
+# New api for All Store
+@api_view(http_method_names=['GET'])
+def all_stores(request):
+    stores = Store.objects.all()
+    # return  Response([{'text': store.text,
+    # 'description': store.description,
+    # 'rating': store.rating, 'id': store.id}
+    # for store in stores])
+    serializer = StoreSerializer(stores, many=True)
+    return Response(serializer.data)
 
-    def get(self):
+
+# Created Stores
+@api_view(http_method_names=['POST'])
+def create_stores(request):
+    serializer = StoreSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(status=HTTP_201_CREATED, data=serializer.data)
+
+
+class StoreApiView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request, format=None):
         stores = Store.objects.all()
-        serializer = StoreSerializer(instance=stores,
-                                     many=True)  # данние по спіску магазінов many=True , many=False по дефолту
+
+        # ограніченія пользователям
+        # stores = Stores.objects.filter(owner__isnull=True)
+        serializer = StoreSerializer(stores,
+                                     many=True)
         return Response(serializer.data)
 
     def post(self):
         serializer = StoreSerializer(data=self.request.data)
-        serializer.is_valid(raise_exception=True)  # error validate
+        serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+        return Response(status=HTTP_201_CREATED, data=serializer.data)
+
+
+# class StoreViewSet(CreateModelMixin,
+#                   ListModelMixin,
+#                   RetrieveModelMixin,
+#                   UpdateModelMixin,
+#                   DestroyModelMixin,
+#                   GenericViewSet)
+
+
+class StoreViewSet(ModelViewSet):
+    queryset = Store.objects.all()
+    serializer_class = StoreSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filter_fields = ['status']
+    search_fields = ['title', 'rating']
+
+    # проверка юзера на аунтификацию
+    def perform_owner(self, serializer):
+        serializer.save(**{"owner": self.request.user})
+
+    @action(detail=True, methods=['post'])
+    def mark_as_in_review(self, request, pk=None):
+        store = self.get_object()
+        store.status = 'in_review'
+        store.save()
+        serializers = self.get_serializer(store)
+        return Response(serializers.data)
+
+    @action(detail=True, methods=['post'])
+    def mark_as_active(self, request, pk=None):
+        store = self.get_object()
+        if store.status == 'active':
+            store.status = 'in_review'
+            store.save()
+        serializers = self.get_serializer(store)
+        return Response(serializers.data)
+
+    @action(detail=True, methods=['post'])
+    def mark_as_deactivated(self, request, pk=None):
+        store = self.get_object()
+        if store.status == 'deactivated':
+            store.status = 'in_review'
+            store.save()
+        serializers = self.get_serializer(store)
+        return Response(serializers.data)
