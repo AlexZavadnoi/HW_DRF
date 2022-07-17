@@ -96,14 +96,6 @@ class StoreApiView(APIView):
         return Response(status=HTTP_201_CREATED, data=serializer.data)
 
 
-# class StoreViewSet(CreateModelMixin,
-#                   ListModelMixin,
-#                   RetrieveModelMixin,
-#                   UpdateModelMixin,
-#                   DestroyModelMixin,
-#                   GenericViewSet)
-
-
 class StoreViewSet(ModelViewSet):
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
